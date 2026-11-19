@@ -8,12 +8,12 @@
     <string name="age">Age</string>
     <string name="scan_id">Scan ID</string>
     <string name="scan_barcode_on_id">Scan Barcode on ID</string>
+    <string name="scan_hint">Point the camera at the PDF417 barcode on the back of the ID</string>
+    <string name="scan_success">ID scanned</string>
+    <string name="cancel">Cancel</string>
     <string name="camera_permission_required">Camera permission is required to scan an ID.</string>
     <string name="camera_permission_denied">Camera permission denied. Enable it in Settings to scan IDs.</string>
-    <string name="err_invalid_camera_number">Invalid camera number.</string>
     <string name="err_camera_not_available">Camera not available.</string>
-    <string name="err_invalid_camera_access">Invalid camera access.</string>
-    <string name="err_invalid_license_key">Invalid license key.</string>
     <string name="scan_failed">Scan Failed.</string>
     <string name="not_of_age">Not of Age</string>
     <string name="expired">Expired</string>

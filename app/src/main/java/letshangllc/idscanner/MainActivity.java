@@ -22,10 +22,6 @@ import androidx.core.graphics.Insets;
 import androidx.core.view.ViewCompat;
 import androidx.core.view.WindowInsetsCompat;
 
-import net.idscan.android.dlparser.DLParser;
-import net.idscan.android.pdf417scanner.PDF417ScanActivity;
-
-import java.io.UnsupportedEncodingException;
 import java.text.ParseException;
 import java.text.SimpleDateFormat;
 import java.util.Calendar;
@@ -36,7 +32,6 @@ import java.util.TimerTask;
 
 public class MainActivity extends AppCompatActivity {
     private static final String TAG = MainActivity.class.getSimpleName();
-    private DLParser parser = null;
 
     /* Views */
     private TextView tvAge;
@@ -67,27 +62,14 @@ public class MainActivity extends AppCompatActivity {
 
     private final ActivityResultLauncher<Intent> scanLauncher =
             registerForActivityResult(new ActivityResultContracts.StartActivityForResult(), result -> {
-                int resultCode = result.getResultCode();
-                Intent data = result.getData();
-
-                if (resultCode == PDF417ScanActivity.RESULT_OK) {
-                    if (data != null) {
-                        tvName.setText(data.getStringExtra(PDF417ScanActivity.BARCODE_DATA));
-                        parseData();
+                if (result.getResultCode() == RESULT_OK) {
+                    DlScanResult scanResult = DlScanResult.fromIntent(result.getData());
+                    if (scanResult != null) {
+                        showScanResult(scanResult);
+                    } else {
+                        Toast.makeText(this, R.string.scan_failed, Toast.LENGTH_SHORT).show();
                     }
-                } else if (resultCode == PDF417ScanActivity.ERROR_INVALID_CAMERA_NUMBER) {
-                    tvName.setText(R.string.err_invalid_camera_number);
-                    Toast.makeText(this, R.string.err_invalid_camera_number, Toast.LENGTH_SHORT).show();
-                } else if (resultCode == PDF417ScanActivity.ERROR_CAMERA_NOT_AVAILABLE) {
-                    tvName.setText(R.string.err_camera_not_available);
-                    Toast.makeText(this, R.string.err_camera_not_available, Toast.LENGTH_SHORT).show();
-                } else if (resultCode == PDF417ScanActivity.ERROR_INVALID_CAMERA_ACCESS) {
-                    tvName.setText(R.string.err_invalid_camera_access);
-                    Toast.makeText(this, R.string.err_invalid_camera_access, Toast.LENGTH_SHORT).show();
-                } else if (resultCode == PDF417ScanActivity.ERROR_INVALID_LICENSE_KEY) {
-                    tvName.setText(R.string.err_invalid_license_key);
-                    Toast.makeText(this, R.string.err_invalid_license_key, Toast.LENGTH_SHORT).show();
-                } else if (resultCode != RESULT_CANCELED) {
+                } else if (result.getResultCode() != RESULT_CANCELED) {
                     Toast.makeText(this, R.string.scan_failed, Toast.LENGTH_SHORT).show();
                 }
             });
@@ -133,58 +115,61 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private void launchScanner() {
-        Intent i = new Intent(MainActivity.this, PDF417ScanActivity.class);
-        i.putExtra(PDF417ScanActivity.EXTRA_LICENSE_KEY, getString(R.string.scanner_key));
+        Intent i = new Intent(MainActivity.this, ScanActivity.class);
         scanLauncher.launch(i);
     }
 
-    private void parseData() {
-        parser = new DLParser();
+    private void showScanResult(DlScanResult res) {
         cvLinLayout.setVisibility(View.VISIBLE);
         tvNoData.setVisibility(View.GONE);
-        try {
-            parser.setup(getApplicationContext(), getString(R.string.parser_key));
-            DLParser.DLResult res = parser.parse(tvName.getText().toString().getBytes("UTF8"));
 
-            tvName.setText(String.format(Locale.getDefault(), "%s %s %s",
-                    res.firstName, res.middleName, res.lastName));
+        tvName.setText(String.format(Locale.getDefault(), "%s %s %s",
+                safe(res.firstName), safe(res.middleName), safe(res.lastName)).trim());
 
-            if (!isLegal(res.birthdate)) {
-                Toast.makeText(this, R.string.not_of_age, Toast.LENGTH_SHORT).show();
-                tvBirthday.setTextColor(ContextCompat.getColor(this, android.R.color.holo_red_dark));
-                tvAge.setTextColor(ContextCompat.getColor(this, android.R.color.holo_red_dark));
-            } else {
-                tvAge.setTextColor(ContextCompat.getColor(this, android.R.color.holo_green_light));
-                tvBirthday.setTextColor(ContextCompat.getColor(this, android.R.color.holo_green_light));
-            }
-
-            if (scannedAge == 0) {
-                tvAge.setText(R.string.not_available);
-            } else {
-                tvAge.setText(String.format(Locale.getDefault(), "%d", scannedAge));
-            }
-
-            if (isExpired(res.expirationDate)) {
-                Toast.makeText(this, R.string.expired, Toast.LENGTH_SHORT).show();
-                tvExpires.setTextColor(ContextCompat.getColor(this, android.R.color.holo_red_dark));
-            } else {
-                tvExpires.setTextColor(ContextCompat.getColor(this, android.R.color.holo_green_light));
-            }
-
-            tvBirthday.setText(res.birthdate);
-            tvExpires.setText(res.expirationDate);
-            tvAddress.setText(res.address1);
-            tvCity.setText(res.city + ", " + res.jurisdictionCode);
-
-        } catch (DLParser.DLParserException e) {
-            Log.e(TAG, "Parser error", e);
-            Toast.makeText(this, R.string.parse_failed, Toast.LENGTH_SHORT).show();
-        } catch (UnsupportedEncodingException e) {
-            Log.e(TAG, "Encoding error", e);
+        scannedAge = 0;
+        if (!isLegal(res.birthdate)) {
+            Toast.makeText(this, R.string.not_of_age, Toast.LENGTH_SHORT).show();
+            tvBirthday.setTextColor(ContextCompat.getColor(this, android.R.color.holo_red_dark));
+            tvAge.setTextColor(ContextCompat.getColor(this, android.R.color.holo_red_dark));
+        } else {
+            tvAge.setTextColor(ContextCompat.getColor(this, android.R.color.holo_green_light));
+            tvBirthday.setTextColor(ContextCompat.getColor(this, android.R.color.holo_green_light));
         }
+
+        if (scannedAge == 0) {
+            tvAge.setText(R.string.not_available);
+        } else {
+            tvAge.setText(String.format(Locale.getDefault(), "%d", scannedAge));
+        }
+
+        if (isExpired(res.expirationDate)) {
+            Toast.makeText(this, R.string.expired, Toast.LENGTH_SHORT).show();
+            tvExpires.setTextColor(ContextCompat.getColor(this, android.R.color.holo_red_dark));
+        } else {
+            tvExpires.setTextColor(ContextCompat.getColor(this, android.R.color.holo_green_light));
+        }
+
+        tvBirthday.setText(safe(res.birthdate));
+        tvExpires.setText(safe(res.expirationDate));
+        tvAddress.setText(safe(res.address1));
+        String cityLine = safe(res.city);
+        if (!safe(res.jurisdictionCode).isEmpty()) {
+            cityLine = cityLine.isEmpty()
+                    ? safe(res.jurisdictionCode)
+                    : cityLine + ", " + safe(res.jurisdictionCode);
+        }
+        tvCity.setText(cityLine);
+    }
+
+    private static String safe(String value) {
+        return value == null ? "" : value.trim();
     }
 
     private boolean isLegal(String birthdate) {
+        if (birthdate == null || birthdate.trim().isEmpty()) {
+            Toast.makeText(this, R.string.age_undetermined, Toast.LENGTH_SHORT).show();
+            return true;
+        }
         SimpleDateFormat formatter = new SimpleDateFormat("MM/dd/yyyy", Locale.getDefault());
 
         try {
@@ -195,12 +180,7 @@ public class MainActivity extends AppCompatActivity {
             Date dateNow = new Date();
 
             this.scannedAge = getDiffYears(date, dateNow);
-            if (scannedAge >= requiredAge) {
-                Log.i(TAG, "LEGAL");
-                return true;
-            } else {
-                return false;
-            }
+            return scannedAge >= requiredAge;
         } catch (ParseException e) {
             Log.e(TAG, "Age parse error", e);
             Toast.makeText(this, R.string.age_undetermined, Toast.LENGTH_SHORT).show();
@@ -209,6 +189,10 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private boolean isExpired(String expirationDate) {
+        if (expirationDate == null || expirationDate.trim().isEmpty()) {
+            Toast.makeText(this, R.string.expiration_undetermined, Toast.LENGTH_SHORT).show();
+            return true;
+        }
         SimpleDateFormat formatter = new SimpleDateFormat("MM/dd/yyyy", Locale.getDefault());
 
         try {
@@ -217,12 +201,7 @@ public class MainActivity extends AppCompatActivity {
                 return true;
             }
             Date dateNow = new Date();
-            if (dateNow.after(date)) {
-                Log.i(TAG, "Expired");
-                return true;
-            } else {
-                return false;
-            }
+            return dateNow.after(date);
         } catch (ParseException e) {
             Log.e(TAG, "Expiration parse error", e);
             Toast.makeText(this, R.string.expiration_undetermined, Toast.LENGTH_SHORT).show();

@@ -11,6 +11,8 @@
     previously in gitignored keys.xml and are not present in this repository.
     Do NOT invent IDs — create/look them up in AdMob console under publisher
     ca-app-pub-8223005482588566.
+
+    Scanner/parser license keys are no longer required (ML Kit + on-device AAMVA).
 -->
 <resources>
     <!-- TODO: Replace with real AdMob App ID for ID Scanner (format: ca-app-pub-8223005482588566~XXXXXXXXXX) -->

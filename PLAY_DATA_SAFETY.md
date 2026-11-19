@@ -11,7 +11,9 @@ Use this document when filling out the Play Console Data safety form and related
 
 ## Overview
 
-ID Scanner reads a US driver’s license PDF417 barcode with the device camera, parses name / age / address fields **on device**, and shows whether the holder meets a user-set minimum age. It displays AdMob banners (after UMP consent). It does **not** create accounts, sync ID data to a backend, or upload government ID images.
+ID Scanner reads a US driver’s license PDF417 barcode with the device camera (CameraX + **Google ML Kit** barcode scanning), parses name / age / address fields **on device** (ML Kit `DriverLicense` / AAMVA element fallback), and shows whether the holder meets a user-set minimum age. It displays AdMob banners (after UMP consent). It does **not** create accounts, sync ID data to a backend, or upload government ID images.
+
+The previous licensed IDScan PDF417 AAR + native DL parser (32-bit `.so` only) was removed so the app includes **arm64-v8a** and meets Play’s 64-bit requirement. No third-party scanner license keys are required.
 
 ---
 
@@ -19,7 +21,7 @@ ID Scanner reads a US driver’s license PDF417 barcode with the device camera, 
 
 | Question | Answer |
 |----------|--------|
-| Does scanned ID data leave the device? | **No** — barcode bytes and parsed fields (name, DOB, address, expiration, etc.) stay in process memory / UI only. There is no app server upload of ID content. |
+| Does scanned ID data leave the device? | **No** — barcode bytes and parsed fields (name, DOB, address, expiration, etc.) stay in process memory / UI only. There is no app server upload of ID content. ML Kit barcode scanning runs on-device. |
 | Are ID images stored? | **No** — the camera preview is used for barcode recognition; the app does not save ID photos to disk or gallery. |
 | Shared with third parties? | **ID payload is not shared.** AdMob may collect advertising identifiers and app/device signals for ads (separate from ID contents). |
 
@@ -43,15 +45,18 @@ Play policy treats government ID numbers and similar credentials as sensitive. D
 
 | Permission | Why | Play notes |
 |------------|-----|------------|
-| `CAMERA` | Scan PDF417 barcode on the back of an ID | Declare camera use; prominent in-app disclosure / runtime request before scan. Not used for unrelated background capture. |
+| `CAMERA` | Scan PDF417 barcode on the back of an ID | Declare camera use; runtime request before scan. Not used for unrelated background capture. |
 | `INTERNET` | Load AdMob ads / UMP consent | Standard |
 | `ACCESS_NETWORK_STATE` | Ads SDK connectivity checks | Standard |
-
-`ACCESS_WIFI_STATE` was removed as unused by the app itself.
 
 ---
 
 ## Third-party SDKs
+
+### Google ML Kit Barcode Scanning
+- **Data:** Camera frames processed on device to decode PDF417 / AAMVA
+- **Network:** Bundled model; scanning does not upload ID images for recognition
+- **Privacy:** https://developers.google.com/ml-kit/terms
 
 ### Google Mobile Ads (AdMob)
 - **Data:** Advertising ID, app interactions, device info (per Google’s policies / user consent)
@@ -62,12 +67,7 @@ Play policy treats government ID numbers and similar credentials as sensitive. D
 - **Purpose:** GDPR/consent before personalized ads
 - **Privacy:** https://policies.google.com/privacy
 
-### IDScan PDF417 scanner + DL parser (local AAR/JAR + `.so`)
-- **Data:** Camera frames and barcode payload processed on device
-- **Network:** None from these libraries in this integration
-- License keys are required at runtime (see `license_keys.xml` TODOs)
-
-Amazon Mobile Ads was **removed** (legacy HTTP / unsupported).
+Amazon Mobile Ads and the old IDScan PDF417/native parser SDKs were **removed**.
 
 ---
 
@@ -79,7 +79,7 @@ Amazon Mobile Ads was **removed** (legacy HTTP / unsupported).
 
 ---
 
-## Children’s privacy / Families
+## Children's privacy / Families
 
 This app is **not** directed at children under 13 (COPPA) or under 16 (GDPR).  
 UMP is configured with `setTagForUnderAgeOfConsent(false)`. Do not enroll in Designed for Families while serving personalized ads without reviewing Families ads policy.
@@ -107,6 +107,6 @@ Yes — uninstall / clear app data; contact developer email on the Play listing 
 ## Owner follow-ups before publish
 
 1. Replace TODO AdMob app ID + banner unit ID in `app/src/main/res/values/ad_config.xml` (publisher `ca-app-pub-8223005482588566`).
-2. Replace TODO scanner/parser license keys in `app/src/main/res/values/license_keys.xml` (or restore private `keys.xml`).
+2. Add release `keystore.properties` + `.jks` locally (never commit).
 3. Complete Data safety + Camera permission declarations to match this document.
-4. Note: native parser libs are only `armeabi-v7a` / `x86` (no `arm64-v8a`); test on target devices.
+4. Confirm the uploaded AAB includes `arm64-v8a` (ML Kit / CameraX provide 64-bit natives).

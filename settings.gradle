@@ -16,4 +16,3 @@ dependencyResolutionManagement {
 
 rootProject.name = "IDScanner"
 include ':app'
-include ':PDF417Scanner'
