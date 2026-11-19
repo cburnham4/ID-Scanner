@@ -1,10 +1,9 @@
 package letshangllc.idscanner;
 
+import android.Manifest;
 import android.content.Intent;
-import android.support.v7.app.AppCompatActivity;
+import android.content.pm.PackageManager;
 import android.os.Bundle;
-import android.support.v7.widget.CardView;
-import android.support.v7.widget.Toolbar;
 import android.util.Log;
 import android.view.View;
 import android.widget.Button;
@@ -13,10 +12,16 @@ import android.widget.LinearLayout;
 import android.widget.TextView;
 import android.widget.Toast;
 
-import net.idscan.android.dlparser.DLParser;
-import net.idscan.android.pdf417scanner.PDF417ScanActivity;
+import androidx.activity.EdgeToEdge;
+import androidx.activity.result.ActivityResultLauncher;
+import androidx.activity.result.contract.ActivityResultContracts;
+import androidx.appcompat.app.AppCompatActivity;
+import androidx.appcompat.widget.Toolbar;
+import androidx.core.content.ContextCompat;
+import androidx.core.graphics.Insets;
+import androidx.core.view.ViewCompat;
+import androidx.core.view.WindowInsetsCompat;
 
-import java.io.UnsupportedEncodingException;
 import java.text.ParseException;
 import java.text.SimpleDateFormat;
 import java.util.Calendar;
@@ -27,8 +32,6 @@ import java.util.TimerTask;
 
 public class MainActivity extends AppCompatActivity {
     private static final String TAG = MainActivity.class.getSimpleName();
-    private final static int SCAN_ACTIVITY_CODE = 0x001;
-    private DLParser parser = null;
 
     /* Views */
     private TextView tvAge;
@@ -45,136 +48,163 @@ public class MainActivity extends AppCompatActivity {
     private int requiredAge = 21;
     private int scannedAge = 0;
 
-    /**
-     * License key for scanner and parser.
-     */
+    private AdsHelper adsHelper;
+    private Timer adRefreshTimer;
 
-    //private static final String SCANNER_KEY;
-    //private static final String PARSER_KEY = "";
+    private final ActivityResultLauncher<String> requestCameraPermission =
+            registerForActivityResult(new ActivityResultContracts.RequestPermission(), granted -> {
+                if (granted) {
+                    launchScanner();
+                } else {
+                    Toast.makeText(this, R.string.camera_permission_denied, Toast.LENGTH_LONG).show();
+                }
+            });
+
+    private final ActivityResultLauncher<Intent> scanLauncher =
+            registerForActivityResult(new ActivityResultContracts.StartActivityForResult(), result -> {
+                if (result.getResultCode() == RESULT_OK) {
+                    DlScanResult scanResult = DlScanResult.fromIntent(result.getData());
+                    if (scanResult != null) {
+                        showScanResult(scanResult);
+                    } else {
+                        Toast.makeText(this, R.string.scan_failed, Toast.LENGTH_SHORT).show();
+                    }
+                } else if (result.getResultCode() != RESULT_CANCELED) {
+                    Toast.makeText(this, R.string.scan_failed, Toast.LENGTH_SHORT).show();
+                }
+            });
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
+        EdgeToEdge.enable(this);
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
 
-        tvAge = (TextView) findViewById(R.id.tvAge);
-        tvName = (TextView) findViewById(R.id.tvName);
-        tvBirthday= (TextView) findViewById(R.id.tvBirthday);
-        tvExpires= (TextView) findViewById(R.id.tvExpires);
-        tvAddress= (TextView) findViewById(R.id.tvAddress);
-        tvCity= (TextView) findViewById(R.id.tvCity);
-        etAge = (EditText) findViewById(R.id.etAge);
-        cvLinLayout = (LinearLayout) findViewById(R.id.cvLinLayout);
-        tvNoData =(TextView) findViewById(R.id.tvNoData);
-
-
-        Button _btn_scan = (Button) findViewById(R.id.btn_scan);
-        _btn_scan.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View view) {
-                Intent i = new Intent(MainActivity.this, PDF417ScanActivity.class);
-                i.putExtra(PDF417ScanActivity.EXTRA_LICENSE_KEY, getString(R.string.scanner_key));
-                startActivityForResult(i, SCAN_ACTIVITY_CODE);
-            }
+        View root = findViewById(R.id.root_layout);
+        ViewCompat.setOnApplyWindowInsetsListener(root, (v, windowInsets) -> {
+            Insets insets = windowInsets.getInsets(WindowInsetsCompat.Type.systemBars());
+            v.setPadding(insets.left, insets.top, insets.right, insets.bottom);
+            return windowInsets;
         });
 
-        this.setupToolbar();
+        tvAge = findViewById(R.id.tvAge);
+        tvName = findViewById(R.id.tvName);
+        tvBirthday = findViewById(R.id.tvBirthday);
+        tvExpires = findViewById(R.id.tvExpires);
+        tvAddress = findViewById(R.id.tvAddress);
+        tvCity = findViewById(R.id.tvCity);
+        etAge = findViewById(R.id.etAge);
+        cvLinLayout = findViewById(R.id.cvLinLayout);
+        tvNoData = findViewById(R.id.tvNoData);
 
-        this.runAds();
+        Button btnScan = findViewById(R.id.btn_scan);
+        btnScan.setOnClickListener(view -> startScanWithPermission());
+
+        setupToolbar();
+        runAds();
     }
 
-    private void parseData(){
-        parser = new DLParser();
-        cvLinLayout.setVisibility(View.VISIBLE);
-        tvNoData.setVisibility(View.GONE);
-        try {
-            //setup parser.
-            parser.setup(getApplicationContext(), getString(R.string.parser_key));
-            //make parse the data.
-            DLParser.DLResult res = parser.parse(tvName.getText().toString().getBytes("UTF8"));
-
-//            res.firstName = "Bobby";
-//            res.middleName = "Richard";
-//            res.lastName = "Richardson";
-//
-//            res.birthdate = "04/16/1996";
-//            res.expirationDate = "07/10/2020";
-//            res.address1 = "716 McMaster Dr.";
-//            res.city = "Portland";
-//            res.jurisdictionCode = "OR";
-
-            tvName.setText(String.format(Locale.getDefault(), "%s %s %s",res.firstName,res.middleName,res.lastName));
-
-            if(!isLegal(res.birthdate)){
-                Toast.makeText(this, "Not of Age", Toast.LENGTH_SHORT).show();
-                tvBirthday.setTextColor(getResources().getColor(android.R.color.holo_red_dark));
-                tvAge.setTextColor(getResources().getColor(android.R.color.holo_red_dark));
-            }else{
-                tvAge.setTextColor(getResources().getColor(android.R.color.holo_green_light));
-                tvBirthday.setTextColor(getResources().getColor(android.R.color.holo_green_light));
-            }
-
-            if(scannedAge ==0){
-                tvAge.setText("N/A");
-            }else{
-                tvAge.setText(String.format(Locale.getDefault(), "%d", scannedAge));
-            }
-
-            if(isExpired(res.expirationDate)){
-                Toast.makeText(this, "Expired", Toast.LENGTH_SHORT).show();
-                tvExpires.setTextColor(getResources().getColor(android.R.color.holo_red_dark));
-            }else {
-                tvExpires.setTextColor(getResources().getColor(android.R.color.holo_green_light));
-            }
-
-            tvBirthday.setText(res.birthdate);
-            tvExpires.setText(res.expirationDate);
-            tvAddress.setText(res.address1);
-            tvCity.setText( res.city + ", " + res.jurisdictionCode);
-
-        } catch (DLParser.DLParserException e) {
-            e.printStackTrace();
-        } catch (UnsupportedEncodingException e) {
-            e.printStackTrace();
+    private void startScanWithPermission() {
+        if (ContextCompat.checkSelfPermission(this, Manifest.permission.CAMERA)
+                == PackageManager.PERMISSION_GRANTED) {
+            launchScanner();
+        } else {
+            Toast.makeText(this, R.string.camera_permission_required, Toast.LENGTH_SHORT).show();
+            requestCameraPermission.launch(Manifest.permission.CAMERA);
         }
     }
 
-    private boolean isLegal(String birthdate){
+    private void launchScanner() {
+        Intent i = new Intent(MainActivity.this, ScanActivity.class);
+        scanLauncher.launch(i);
+    }
+
+    private void showScanResult(DlScanResult res) {
+        cvLinLayout.setVisibility(View.VISIBLE);
+        tvNoData.setVisibility(View.GONE);
+
+        tvName.setText(String.format(Locale.getDefault(), "%s %s %s",
+                safe(res.firstName), safe(res.middleName), safe(res.lastName)).trim());
+
+        scannedAge = 0;
+        if (!isLegal(res.birthdate)) {
+            Toast.makeText(this, R.string.not_of_age, Toast.LENGTH_SHORT).show();
+            tvBirthday.setTextColor(ContextCompat.getColor(this, android.R.color.holo_red_dark));
+            tvAge.setTextColor(ContextCompat.getColor(this, android.R.color.holo_red_dark));
+        } else {
+            tvAge.setTextColor(ContextCompat.getColor(this, android.R.color.holo_green_light));
+            tvBirthday.setTextColor(ContextCompat.getColor(this, android.R.color.holo_green_light));
+        }
+
+        if (scannedAge == 0) {
+            tvAge.setText(R.string.not_available);
+        } else {
+            tvAge.setText(String.format(Locale.getDefault(), "%d", scannedAge));
+        }
+
+        if (isExpired(res.expirationDate)) {
+            Toast.makeText(this, R.string.expired, Toast.LENGTH_SHORT).show();
+            tvExpires.setTextColor(ContextCompat.getColor(this, android.R.color.holo_red_dark));
+        } else {
+            tvExpires.setTextColor(ContextCompat.getColor(this, android.R.color.holo_green_light));
+        }
+
+        tvBirthday.setText(safe(res.birthdate));
+        tvExpires.setText(safe(res.expirationDate));
+        tvAddress.setText(safe(res.address1));
+        String cityLine = safe(res.city);
+        if (!safe(res.jurisdictionCode).isEmpty()) {
+            cityLine = cityLine.isEmpty()
+                    ? safe(res.jurisdictionCode)
+                    : cityLine + ", " + safe(res.jurisdictionCode);
+        }
+        tvCity.setText(cityLine);
+    }
+
+    private static String safe(String value) {
+        return value == null ? "" : value.trim();
+    }
+
+    private boolean isLegal(String birthdate) {
+        if (birthdate == null || birthdate.trim().isEmpty()) {
+            Toast.makeText(this, R.string.age_undetermined, Toast.LENGTH_SHORT).show();
+            return true;
+        }
         SimpleDateFormat formatter = new SimpleDateFormat("MM/dd/yyyy", Locale.getDefault());
 
-        try{
+        try {
             Date date = formatter.parse(birthdate);
+            if (date == null) {
+                return true;
+            }
             Date dateNow = new Date();
 
             this.scannedAge = getDiffYears(date, dateNow);
-            if(scannedAge >= requiredAge){
-                Log.i(TAG, "LEGAL");
-                return true;
-            }else{
-                return false;
-            }
-        }catch (ParseException e){
-            e.printStackTrace();
-            Toast.makeText(this, "The age could not be determined", Toast.LENGTH_SHORT).show();
+            return scannedAge >= requiredAge;
+        } catch (ParseException e) {
+            Log.e(TAG, "Age parse error", e);
+            Toast.makeText(this, R.string.age_undetermined, Toast.LENGTH_SHORT).show();
             return true;
         }
     }
 
-    private boolean isExpired(String expirationDate){
+    private boolean isExpired(String expirationDate) {
+        if (expirationDate == null || expirationDate.trim().isEmpty()) {
+            Toast.makeText(this, R.string.expiration_undetermined, Toast.LENGTH_SHORT).show();
+            return true;
+        }
         SimpleDateFormat formatter = new SimpleDateFormat("MM/dd/yyyy", Locale.getDefault());
 
-        try{
+        try {
             Date date = formatter.parse(expirationDate);
-            Date dateNow = new Date();
-            if(dateNow.after(date)){
-                Log.i(TAG, "Expired");
+            if (date == null) {
                 return true;
-            }else{
-                return false;
             }
-        }catch (ParseException e){
-            e.printStackTrace();
-            Toast.makeText(this, "The expiration could not be determined", Toast.LENGTH_SHORT).show();
+            Date dateNow = new Date();
+            return dateNow.after(date);
+        } catch (ParseException e) {
+            Log.e(TAG, "Expiration parse error", e);
+            Toast.makeText(this, R.string.expiration_undetermined, Toast.LENGTH_SHORT).show();
             return true;
         }
     }
@@ -192,91 +222,87 @@ public class MainActivity extends AppCompatActivity {
         return diff;
     }
 
-    public void subOneOnClick(View view){
+    public void subOneOnClick(View view) {
         String ageString = etAge.getText().toString().trim();
-        if(ageString.isEmpty()){
-            Toast.makeText(this, "The required age is blank", Toast.LENGTH_SHORT).show();
-        }else {
-            try{
+        if (ageString.isEmpty()) {
+            Toast.makeText(this, R.string.required_age_blank, Toast.LENGTH_SHORT).show();
+        } else {
+            try {
                 int age = Integer.parseInt(ageString);
                 etAge.setText(String.format(Locale.getDefault(), "%d", --age));
                 this.requiredAge = age;
-            }catch (Exception e){
-                e.printStackTrace();
+            } catch (Exception e) {
+                Log.e(TAG, "Age decrement error", e);
             }
         }
     }
 
-    public void addOneOnClick(View view){
+    public void addOneOnClick(View view) {
         String ageString = etAge.getText().toString().trim();
-        if(ageString.isEmpty()){
-            Toast.makeText(this, "The required requiredAge is blank", Toast.LENGTH_SHORT).show();
-        }else {
-            try{
+        if (ageString.isEmpty()) {
+            Toast.makeText(this, R.string.required_age_blank, Toast.LENGTH_SHORT).show();
+        } else {
+            try {
                 int age = Integer.parseInt(ageString);
                 etAge.setText(String.format(Locale.getDefault(), "%d", ++age));
                 this.requiredAge = age;
-            }catch (Exception e){
-                e.printStackTrace();
+            } catch (Exception e) {
+                Log.e(TAG, "Age increment error", e);
             }
         }
     }
 
     @Override
+    protected void onPause() {
+        super.onPause();
+        if (adsHelper != null) {
+            adsHelper.onPause();
+        }
+    }
+
+    @Override
     protected void onDestroy() {
+        if (adRefreshTimer != null) {
+            adRefreshTimer.cancel();
+            adRefreshTimer = null;
+        }
+        if (adsHelper != null) {
+            adsHelper.onDestroy();
+        }
         super.onDestroy();
     }
 
     @Override
     protected void onResume() {
         super.onResume();
-    }
-
-    @Override
-    protected void onActivityResult(int requestCode, int resultCode, Intent data) {
-        super.onActivityResult(requestCode, resultCode, data);
-
-        if (requestCode == SCAN_ACTIVITY_CODE) {
-            if (resultCode == PDF417ScanActivity.RESULT_OK) {
-                if (data != null) {
-                    tvName.setText(data.getStringExtra(PDF417ScanActivity.BARCODE_DATA));
-                    parseData();
-                }
-            } else if (resultCode == PDF417ScanActivity.ERROR_INVALID_CAMERA_NUMBER) {
-                tvName.setText("Invalid camera number.");
-                Toast.makeText(this,"Invalid camera number.", Toast.LENGTH_SHORT ).show();
-            } else if (resultCode == PDF417ScanActivity.ERROR_CAMERA_NOT_AVAILABLE) {
-                tvName.setText("Camera not available.");
-                Toast.makeText(this,"Camera not available.", Toast.LENGTH_SHORT ).show();
-            } else if (resultCode == PDF417ScanActivity.ERROR_INVALID_CAMERA_ACCESS) {
-                tvName.setText("Invalid camera access.");
-                Toast.makeText(this,"Invalid camera access.", Toast.LENGTH_SHORT ).show();
-            } else if (resultCode == PDF417ScanActivity.ERROR_INVALID_LICENSE_KEY) {
-                tvName.setText("Invalid license key.");
-                Toast.makeText(this,"Invalid license key.", Toast.LENGTH_SHORT ).show();
-            }
-        }else{
-            Toast.makeText(MainActivity.this,"Scan Failed.", Toast.LENGTH_SHORT ).show();
+        if (adsHelper != null) {
+            adsHelper.onResume();
         }
     }
 
-    public void setupToolbar(){
-        Toolbar toolbar = (Toolbar) findViewById(R.id.toolbar);
+    public void setupToolbar() {
+        Toolbar toolbar = findViewById(R.id.toolbar);
         setSupportActionBar(toolbar);
-        setTitle("Id Scanner");
+        setTitle(R.string.app_name);
     }
 
-    private AdsHelper adsHelper;
-    public void runAds(){
-        adsHelper =  new AdsHelper(getWindow().getDecorView(), getResources().getString(R.string.admob_id), this);
-
+    public void runAds() {
+        adsHelper = new AdsHelper(
+                getWindow().getDecorView(),
+                getString(R.string.admob_banner_unit_id),
+                this
+        );
         adsHelper.setUpAds();
-        int delay = 1000; // delay for 1 sec.
+
+        int delay = 1000;
         int period = getResources().getInteger(R.integer.ad_refresh_rate);
-        Timer timer = new Timer();
-        timer.scheduleAtFixedRate(new TimerTask() {
+        adRefreshTimer = new Timer();
+        adRefreshTimer.scheduleAtFixedRate(new TimerTask() {
+            @Override
             public void run() {
-                adsHelper.refreshAd();  // display the data
+                if (adsHelper != null) {
+                    adsHelper.refreshAd();
+                }
             }
         }, delay, period);
     }
