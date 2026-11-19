@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+    PRODUCTION AdMob configuration for ID Scanner (letshangllc.idscanner).
+    Publisher ID: pub-8223005482588566
+
+    Debug builds override these with Google's official test IDs via
+    app/src/debug/res/values/ad_config.xml
+
+    TODO (release): Replace the banner unit ID below with the real AdMob
+    unit for this app before publishing. The AdMob App ID and unit IDs were
+    previously in gitignored keys.xml and are not present in this repository.
+    Do NOT invent IDs — create/look them up in AdMob console under publisher
+    ca-app-pub-8223005482588566.
+-->
+<resources>
+    <!-- TODO: Replace with real AdMob App ID for ID Scanner (format: ca-app-pub-8223005482588566~XXXXXXXXXX) -->
+    <string name="admob_app_id">ca-app-pub-8223005482588566~TODO_APP_ID</string>
+
+    <!-- TODO: Replace with real banner ad unit ID (format: ca-app-pub-8223005482588566/XXXXXXXXXX) -->
+    <string name="admob_banner_unit_id">ca-app-pub-8223005482588566/TODO_BANNER_UNIT_ID</string>
+</resources>

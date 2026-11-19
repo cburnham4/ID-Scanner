@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+    PDF417 scanner / DL parser license keys.
+
+    Historically these lived in gitignored res/values/keys.xml (still gitignored).
+    Real keys are NOT in this repository.
+
+    TODO: Replace the placeholder values below with the real license keys from
+    IDScan / Accusoft (or your vendor) before release. Without valid keys the
+    scanner and parser will report invalid license errors at runtime.
+-->
+<resources>
+    <!-- TODO: PDF417 scanner license key -->
+    <string name="scanner_key">TODO_SCANNER_LICENSE_KEY</string>
+
+    <!-- TODO: Driver license parser license key -->
+    <string name="parser_key">TODO_PARSER_LICENSE_KEY</string>
+</resources>
