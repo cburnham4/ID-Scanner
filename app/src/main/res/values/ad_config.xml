@@ -2,22 +2,23 @@
 <!--
     PRODUCTION AdMob configuration for ID Scanner (letshangllc.idscanner).
     Publisher ID: pub-8223005482588566
+    AdMob app entry: "Id Scanner" (package not linked in AdMob console)
+
+    Source: AdMob console export (admob-ids.csv). Prefer CSV over any IDs
+    recovered from the old APK.
 
     Debug builds override these with Google's official test IDs via
     app/src/debug/res/values/ad_config.xml
 
-    TODO (release): Replace the banner unit ID below with the real AdMob
-    unit for this app before publishing. The AdMob App ID and unit IDs were
-    previously in gitignored keys.xml and are not present in this repository.
-    Do NOT invent IDs — create/look them up in AdMob console under publisher
-    ca-app-pub-8223005482588566.
-
-    Scanner/parser license keys are no longer required (ML Kit + on-device AAMVA).
+    Mapping:
+      AdMob App ID              -> ca-app-pub-8223005482588566~7723662736
+      MainActivity bottom banner -> "ID Scanner Banner"
+                                   ca-app-pub-8223005482588566/9200395932
+      ScanActivity               -> no ad slot
 -->
 <resources>
-    <!-- TODO: Replace with real AdMob App ID for ID Scanner (format: ca-app-pub-8223005482588566~XXXXXXXXXX) -->
-    <string name="admob_app_id">ca-app-pub-8223005482588566~TODO_APP_ID</string>
+    <string name="admob_app_id">ca-app-pub-8223005482588566~7723662736</string>
 
-    <!-- TODO: Replace with real banner ad unit ID (format: ca-app-pub-8223005482588566/XXXXXXXXXX) -->
-    <string name="admob_banner_unit_id">ca-app-pub-8223005482588566/TODO_BANNER_UNIT_ID</string>
+    <!-- MainActivity bottom banner — AdMob unit "ID Scanner Banner" -->
+    <string name="admob_banner_unit_id">ca-app-pub-8223005482588566/9200395932</string>
 </resources>

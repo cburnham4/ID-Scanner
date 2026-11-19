@@ -106,7 +106,7 @@ Yes — uninstall / clear app data; contact developer email on the Play listing 
 
 ## Owner follow-ups before publish
 
-1. Replace TODO AdMob app ID + banner unit ID in `app/src/main/res/values/ad_config.xml` (publisher `ca-app-pub-8223005482588566`).
-2. Add release `keystore.properties` + `.jks` locally (never commit).
-3. Complete Data safety + Camera permission declarations to match this document.
-4. Confirm the uploaded AAB includes `arm64-v8a` (ML Kit / CameraX provide 64-bit natives).
+1. Add release `keystore.properties` + `.jks` locally (never commit).
+2. Complete Data safety + Camera permission declarations to match this document.
+3. Confirm the uploaded AAB includes `arm64-v8a` (ML Kit / CameraX provide 64-bit natives).
+4. Optionally link package `letshangllc.idscanner` to the AdMob app "Id Scanner" (`~7723662736`).
